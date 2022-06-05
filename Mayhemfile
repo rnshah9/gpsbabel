@@ -1,0 +1,5 @@
+project: gpsbabel
+target: gpsbabel
+
+cmds:
+  - cmd: /repo/gpsbabel -i gpx -f @@ -o ozi -F /dev/null
