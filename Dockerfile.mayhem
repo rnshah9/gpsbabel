@@ -23,11 +23,6 @@ COPY . /repo
 WORKDIR /repo
 RUN qmake
 RUN make -j8
-RUN mkdir -p /deps
-RUN ldd /repo/gpsbabel | tr -s '[:blank:]' '\n' | grep '^/' | xargs -I % sh -c 'cp % /deps;'
-
 FROM fedora:32 as package
-
-COPY --from=builder /deps /deps
-COPY --from=builder /repo/gpsbabel /repo/gpsbabel
-ENV LD_LIBRARY_PATH=/deps
+RUN dnf install --assumeyes qt5-qtbase-devel libusbx-devel
+COPY --from=builder /repo/gpsbabel /
