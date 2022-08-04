@@ -1359,7 +1359,7 @@ mag_waypt_pr(const Waypoint* waypointp)
     icon_token = mag_find_token_from_descr(waypointp->icon_descr);
   }
 
-  if (get_cache_icon(waypointp)) {
+  if (!get_cache_icon(waypointp).isEmpty()) {
     icon_token = mag_find_token_from_descr(get_cache_icon(waypointp));
   }
 
@@ -1422,8 +1422,8 @@ void mag_track_disp(const Waypoint* waypointp)
     QDateTime dt = waypointp->GetCreationTime().toUTC();
     dt = dt.addMSecs(10 * lround(dt.time().msec()/10.0) - dt.time().msec());
     assert((dt.time().msec() % 10) == 0);
-    dmy = dt.toString("ddMMyy").toUtf8();
-    hms = dt.toString("hhmmss.zzz").left(9).toUtf8();
+    dmy = dt.toString(u"ddMMyy").toUtf8();
+    hms = dt.toString(u"hhmmss.zzz").left(9).toUtf8();
   }
 
   double lon = fabs(ilon);

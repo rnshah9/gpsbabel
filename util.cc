@@ -724,7 +724,7 @@ QDateTime dotnet_time_to_qdatetime(long long dotnet)
  * a GPX file from geocaching.com.  Thus we sort of make all the other
  * formats do lookups based on these strings.
  */
-const char*
+QString
 get_cache_icon(const Waypoint* waypointp)
 {
   if (!global_opts.smart_icons) {
@@ -962,7 +962,7 @@ rot13(const QString& s)
  * a format usable for strftime and others
  */
 
-char*
+QString
 convert_human_date_format(const char* human_datef)
 {
   char* result = (char*) xcalloc((2*strlen(human_datef)) + 1, 1);
@@ -1020,7 +1020,9 @@ convert_human_date_format(const char* human_datef)
       fatal("Invalid character \"%c\" in date format!", *cin);
     }
   }
-  return result;
+  QString rv(result);
+  xfree(result);
+  return rv;
 }
 
 /*
@@ -1028,7 +1030,7 @@ convert_human_date_format(const char* human_datef)
  * a format usable for strftime and others
  */
 
-char*
+QString
 convert_human_time_format(const char* human_timef)
 {
   char* result = (char*) xcalloc((2*strlen(human_timef)) + 1, 1);
@@ -1112,7 +1114,9 @@ convert_human_time_format(const char* human_timef)
       fatal("Invalid character \"%c\" in time format!", *cin);
     }
   }
-  return result;
+  QString rv(result);
+  xfree(result);
+  return rv;
 }
 
 
@@ -1123,10 +1127,10 @@ convert_human_time_format(const char* human_timef)
  * sep = string between lat and lon (separator)
  * html = 1 for html output otherwise text
  */
-char*
-pretty_deg_format(double lat, double lon, char fmt, const char* sep, int html)
+QString
+pretty_deg_format(double lat, double lon, char fmt, const char* sep, bool html)
 {
-  char*	result;
+  QString	result;
   char latsig = lat < 0 ? 'S':'N';
   char lonsig = lon < 0 ? 'W':'E';
   int latint = abs((int) lat);
@@ -1139,17 +1143,17 @@ pretty_deg_format(double lat, double lon, char fmt, const char* sep, int html)
     sep = " ";  /* default " " */
   }
   if (fmt == 'd') { /* ddd */
-    xasprintf(&result, "%c%6.5f%s%s%c%6.5f%s",
-              latsig, fabs(lat), html?"&deg;":"", sep,
-              lonsig, fabs(lon), html?"&deg;":"");
+    result = QStringLiteral("%1%2%3%4%5%6%7")
+             .arg(latsig).arg(fabs(lat), 6, 'f', 5).arg(html ? "&deg;" : "", sep)
+             .arg(lonsig).arg(fabs(lon), 6, 'f', 5).arg(html ? "&deg;" : "");
   } else if (fmt == 's') { /* dms */
-    xasprintf(&result, "%c%d%s%02d'%04.1f\"%s%c%d%s%02d'%04.1f\"",
-              latsig, latint, html?"&deg;":" ", (int)latmin, latsec, sep,
-              lonsig, lonint, html?"&deg;":" ", (int)lonmin, lonsec);
+    result = QStringLiteral("%1%2%3%4'%5\"%6%7%8%9%10'%11\"")
+             .arg(latsig).arg(latint).arg(html ? "&deg;" : " ").arg((int)latmin, 2, 10, QChar('0')).arg(latsec, 4, 'f', 1, QChar('0')).arg(sep)
+             .arg(lonsig).arg(lonint).arg(html ? "&deg;" : " ").arg((int)lonmin, 2, 10, QChar('0')).arg(lonsec, 4, 'f', 1, QChar('0'));
   } else { /* default dmm */
-    xasprintf(&result,  "%c%d%s%06.3f%s%c%d%s%06.3f",
-              latsig, latint, html?"&deg;":" ", latmin, sep,
-              lonsig, lonint, html?"&deg;":" ", lonmin);
+    result = QStringLiteral("%1%2%3%4%5%6%7%8%9")
+             .arg(latsig).arg(latint).arg(html ? "&deg;" : " ").arg(latmin, 6, 'f', 3, QChar('0')).arg(sep)
+             .arg(lonsig).arg(lonint).arg(html ? "&deg;" : " ").arg(lonmin, 6, 'f', 3, QChar('0'));
   }
   return result;
 }
@@ -1163,7 +1167,7 @@ pretty_deg_format(double lat, double lon, char fmt, const char* sep, int html)
  * </body> and </html>- stop processing altogether
  * <style> </style> - stop overriding styles for everything
  */
-char*
+QString
 strip_nastyhtml(const QString& in)
 {
   char* returnstr;
@@ -1245,7 +1249,9 @@ strip_nastyhtml(const QString& in)
     *lcp = '*';
   }
   xfree(lcstr);
-  return (returnstr);
+  QString rv(returnstr);
+  xfree(returnstr);
+  return rv;
 }
 
 /*
@@ -1254,7 +1260,7 @@ strip_nastyhtml(const QString& in)
  *  pleasant for a human reader.   Yes, this falls down in all kinds of
  *  ways such as spaces within the tags, etc.
  */
-char*
+QString
 strip_html(const utf_string* in)
 {
 #if 0
@@ -1263,17 +1269,18 @@ strip_html(const utf_string* in)
   // or just say we don't do that any more.
   QTextDocument doc;
   doc.setHtml(in->utfstring);
-  return xstrdup(CSTR(doc.toPlainText().simplified()));
+  return doc.toPlainText().simplified();
 #else
+  if (!in->is_html) {
+    return in->utfstring;
+  }
+
   char* out;
   char* instr;
   char tag[8];
   unsigned short int taglen = 0;
 
   char* incopy = instr = xstrdup(in->utfstring);
-  if (!in->is_html) {
-    return instr;
-  }
   /*
    * We only shorten, so just dupe the input buf for space.
    */
@@ -1340,123 +1347,11 @@ strip_html(const utf_string* in)
     instr++;
   }
   *out++ = 0;
-  if (incopy) {
-    xfree(incopy);
-  }
-  return (outstring);
+  xfree(incopy);
+  QString rv(outstring);
+  xfree(outstring);
+  return rv;
 #endif
-}
-
-struct entity_types {
-  const char* text;
-  const char* entity;
-  int  not_html;
-};
-
-static
-entity_types stdentities[] =  {
-  { "&",	"&amp;", 0 },
-  { "'",	"&apos;", 1 },
-  { "<",	"&lt;", 0 },
-  { ">",	"&gt;", 0 },
-  { "\"",	"&quot;", 0 },
-  { "\x01",	" ", 1 }, // illegal xml 1.0 character
-  { "\x02",	" ", 1 }, // illegal xml 1.0 character
-  { "\x03",	" ", 1 }, // illegal xml 1.0 character
-  { "\x04",	" ", 1 }, // illegal xml 1.0 character
-  { "\x05",	" ", 1 }, // illegal xml 1.0 character
-  { "\x06",	" ", 1 }, // illegal xml 1.0 character
-  { "\x07",	" ", 1 }, // illegal xml 1.0 character
-  { "\x08",	" ", 1 }, // illegal xml 1.0 character
-  // { "\x09",	" ", 1 },  legal xml 1.0 character
-  // { "\x0a",	" ", 1 },  legal xml 1.0 character
-  { "\x0b",	" ", 1 }, // illegal xml 1.0 character
-  { "\x0c",	" ", 1 }, // illegal xml 1.0 character
-  // { "\x0d",	" ", 1 },  legal xml 1.0 character
-  { "\x0e",	" ", 1 }, // illegal xml 1.0 character
-  { "\x0f",	" ", 1 }, // illegal xml 1.0 character
-  { "\x10",	" ", 1 }, // illegal xml 1.0 character
-  { "\x11",	" ", 1 }, // illegal xml 1.0 character
-  { "\x12",	" ", 1 }, // illegal xml 1.0 character
-  { "\x13",	" ", 1 }, // illegal xml 1.0 character
-  { "\x14",	" ", 1 }, // illegal xml 1.0 character
-  { "\x15",	" ", 1 }, // illegal xml 1.0 character
-  { "\x16",	" ", 1 }, // illegal xml 1.0 character
-  { "\x17",	" ", 1 }, // illegal xml 1.0 character
-  { "\x18",	" ", 1 }, // illegal xml 1.0 character
-  { "\x19",	" ", 1 }, // illegal xml 1.0 character
-  { "\x1a",	" ", 1 }, // illegal xml 1.0 character
-  { "\x1b",	" ", 1 }, // illegal xml 1.0 character
-  { "\x1c",	" ", 1 }, // illegal xml 1.0 character
-  { "\x1d",	" ", 1 }, //illegal xml 1.0 character
-  { "\x1e",	" ", 1 }, //illegal xml 1.0 character
-  { "\x1f",	" ", 1 }, //illegal xml 1.0 character
-  { nullptr,	nullptr, 0 }
-};
-
-static
-char*
-entitize(const char* str, bool is_html)
-{
-  char* p;
-  char* tmp;
-  char* xstr;
-
-  entity_types* ep = stdentities;
-  int elen = 0;
-  int ecount = 0;
-
-  /* figure # of entity replacements and additional size. */
-  while (ep->text) {
-    const char* cp = str;
-    while ((cp = strstr(cp, ep->text)) != nullptr) {
-      elen += strlen(ep->entity) - strlen(ep->text);
-      ecount++;
-      cp += strlen(ep->text);
-    }
-    ep++;
-  }
-
-  /* enough space for the whole string plus entity replacements, if any */
-  tmp = (char*) xcalloc((strlen(str) + elen + 1), 1);
-  strcpy(tmp, str);
-
-  if (ecount != 0) {
-    for (ep = stdentities; ep->text; ep++) {
-      p = tmp;
-      if (is_html && ep->not_html)  {
-        continue;
-      }
-      while ((p = strstr(p, ep->text)) != nullptr) {
-        elen = strlen(ep->entity);
-
-        xstr = xstrdup(p + strlen(ep->text));
-
-        strcpy(p, ep->entity);
-        strcpy(p + elen, xstr);
-
-        xfree(xstr);
-
-        p += elen;
-      }
-    }
-  }
-
-  return (tmp);
-}
-
-/*
- * Public callers for the above to hide the absence of &apos from HTML
- */
-
-char* xml_entitize(const char* str)
-{
-  return entitize(str, false);
-}
-
-char* html_entitize(const QString& str)
-{
-  return entitize(CSTR(str), true);
 }
 
 /*
